@@ -1,0 +1,40 @@
+name: Android Auto Build & APK Download
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+    # ১. কোড চেকআউট করা
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # ২. JDK 17 ইনস্টল করা (অটো)
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    # ৩. Gradle Wrapper ফাইলগুলোর পারমিশন ঠিক করা
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    # ৪. ডিபেনডেন্সি ডাউনলোড এবং বিল্ড (কোনো এরর ছাড়া)
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug --info
+
+    # ৫. APK আপলোড করা (ডাউনলোড লিংক এখানে পাবে)
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BkashLootTool-App
+        path: app/build/outputs/apk/debug/app-debug.apk
