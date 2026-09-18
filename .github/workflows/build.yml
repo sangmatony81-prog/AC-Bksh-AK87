@@ -1,78 +1,26 @@
-name: Android Build & APK
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-permissions:
-  contents: read
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: .github/workflows
-
-    env:
-      GRADLE_VERSION: "8.2"
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: "17"
-          distribution: temurin
-          cache: gradle
-
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export ANDROID_HOME="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+          sdkmanager --version
 
       - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Download Gradle and create wrapper
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ ! -f ./gradlew ]]; then
-            curl --fail --location --retry 3 \
-              "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" \
-              --output /tmp/gradle.zip
-
-            rm -rf /tmp/gradle
-            mkdir -p /tmp/gradle
-            unzip -q /tmp/gradle.zip -d /tmp/gradle
-
-            "/tmp/gradle/gradle-${GRADLE_VERSION}/bin/gradle" wrapper \
-              --gradle-version "${GRADLE_VERSION}" \
-              --distribution-type bin
-          fi
-
-          chmod +x ./gradlew
-          test -f ./gradle/wrapper/gradle-wrapper.jar
-          test -f ./gradle/wrapper/gradle-wrapper.properties
-
-      - name: Build debug APK
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: .github/workflows/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
