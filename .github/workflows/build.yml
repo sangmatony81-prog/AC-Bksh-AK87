@@ -1,5 +1,64 @@
-- name: Make Gradle wrapper executable
-  run: chmod +x ./gradlew
+name: Android Build & APK
 
-- name: Build APK
-  run: ./gradlew :app:assembleDebug --stacktrace
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: .github/workflows
+
+    env:
+      GRADLE_VERSION: "8.2"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Download Gradle and create wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f ./gradlew ]]; then
+            curl --fail --location --retry 3 \
+              "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" \
+              --output /tmp/gradle.zip
+
+            rm -rf /tmp/gradle
+            mkdir -p /tmp/gradle
+            unzip -q /tmp/gradle.zip -d /tmp/gradle
+
+            "/tmp/gradle/gradle-${GRADLE_VERSION}/bin/gradle" wrapper \
+              --gradle-version "${GRADLE_VERSION}" \
+              --distribution-type bin
+          fi
+
+          chmod +x ./gradlew
+          test -f ./gradle/wrapper/gradle-wrapper.jar
+          test -f ./gradle/wrapper/gradle-wrapper.properties
+
+      - name: Build debug APK
+        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: .github/workflows/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
